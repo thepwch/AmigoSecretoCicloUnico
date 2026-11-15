@@ -116,7 +116,7 @@
                 <div class="flex justify-between items-center mb-4">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-paper-plane text-indigo-600 mr-2"></i> Envío de Resultados por WhatsApp</h2>
-                        <p class="text-xs text-slate-500">Envía a cada participante su número de papelito físico y enlace de revelación.</p>
+                        <p class="text-xs text-slate-500">Envía a cada participante el número de papelito físico que debe abrir y su enlace.</p>
                     </div>
                     <button onclick="resetearSorteo()" class="text-rose-600 hover:text-rose-700 text-xs font-semibold border border-rose-200 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors">
                         <i class="fa-solid fa-rotate-left mr-1"></i> Reiniciar Sorteo
@@ -139,10 +139,10 @@
                 <p class="text-sm text-slate-500 mt-1">Hola <span id="rev-participant-name" class="font-semibold text-slate-800"></span>, es hora de descubrir a quién le darás tu regalo.</p>
             </div>
 
-            <!-- Badge del Número de Papelito -->
+            <!-- Badge del Número de Papelito que debe abrir -->
             <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-center space-x-2 text-amber-800 text-sm font-medium">
                 <i class="fa-solid fa-ticket"></i>
-                <span>Tu papelito asignado es el número: <strong id="rev-papelito-num" class="text-lg">#--</strong></span>
+                <span>Busca y abre el papelito número: <strong id="rev-papelito-num" class="text-lg">#--</strong></span>
             </div>
 
             <div id="reveal-card-box" class="bg-slate-50 border border-slate-200 rounded-2xl p-6 transition-all">
@@ -313,20 +313,24 @@
                 }).join('');
 
                 const isLocked = window.appState.event.estado === 'sorteado';
-                const papelitoBadge = (p.numeroPapelito !== undefined && p.numeroPapelito !== null) ? `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-md font-semibold ml-2">Papelito #${p.numeroPapelito}</span>` : '';
+                let papelitoInfo = '';
+                if (isLocked && p.numeroPapelito !== undefined && p.papelitoDestino !== undefined) {
+                    papelitoInfo = `<div class="mt-2 flex flex-wrap gap-2 text-xs">
+                        <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">Su nombre está en papelito: <strong>#${p.numeroPapelito}</strong></span>
+                        <span class="bg-amber-100 text-amber-800 px-2 py-1 rounded border border-amber-200">Debe abrir el papelito: <strong>#${p.papelitoDestino}</strong></span>
+                    </div>`;
+                }
 
                 return `
                 <div class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm space-y-3">
                     <div class="flex justify-between items-center">
                         <div>
-                            <div class="flex items-center">
-                                <h3 class="font-bold text-slate-800 text-sm">${p.nombre}</h3>
-                                ${papelitoBadge}
-                            </div>
+                            <h3 class="font-bold text-slate-800 text-sm">${p.nombre}</h3>
                             <p class="text-xs text-slate-400 mt-0.5"><i class="fa-brands fa-whatsapp text-emerald-500 mr-1"></i>${p.phone}</p>
                         </div>
                         ${!isLocked ? `<button onclick="deleteParticipant('${p.id}')" class="text-rose-500 hover:text-rose-700 text-xs p-1"><i class="fa-solid fa-trash-can"></i></button>` : ''}
                     </div>
+                    ${papelitoInfo}
                     <div class="pt-2 border-t border-slate-100">
                         <p class="text-xs font-semibold text-slate-500 mb-2">Exclusiones (No puede regalar a):</p>
                         <div class="flex flex-wrap gap-2">${exclusionesHtml || '<span class="text-xs text-slate-400">No hay otros participantes</span>'}</div>
@@ -351,7 +355,7 @@
 
             const newId = 'p_' + Math.random().toString(36).substr(2, 9);
             const pRef = doc(window.db, 'eventos', window.currentEventId, 'participantes', newId);
-            await setDoc(pRef, { nombre, phone, exclusiones: [], asignadoA: '', token: '', numeroPapelito: null });
+            await setDoc(pRef, { nombre, phone, exclusiones: [], asignadoA: '', token: '', numeroPapelito: null, papelitoDestino: null });
             document.getElementById('p-name').value = '';
             document.getElementById('p-phone').value = '';
             await fetchParticipants();
@@ -398,6 +402,14 @@
                 [numerosPapelitos[i], numerosPapelitos[j]] = [numerosPapelitos[j], numerosPapelitos[i]];
             }
 
+            // Asignar temporalmente un número de papelito físico a cada participante
+            for (let i = 0; i < participants.length; i++) {
+                participants[i].tempPapelito = numerosPapelitos[i];
+            }
+
+            const map = new Map();
+            participants.forEach(p => map.set(p.id, p));
+
             const batch = writeBatch(window.db);
             const eventRef = doc(window.db, 'eventos', window.currentEventId);
             batch.update(eventRef, { estado: 'sorteado' });
@@ -405,25 +417,30 @@
             for (let i = 0; i < participants.length; i++) {
                 const p = participants[i];
                 const receiverId = asignaciones[p.id];
+                const receiver = map.get(receiverId);
                 const token = 'tok_' + Math.random().toString(36).substr(2, 12);
-                const numeroPapelito = numerosPapelitos[i];
+                
+                const miPapelito = p.tempPapelito;           // El número de papelito donde está su nombre por dentro
+                const papelitoDestino = receiver.tempPapelito; // El número de papelito que este participante debe abrir
 
                 const pRef = doc(window.db, 'eventos', window.currentEventId, 'participantes', p.id);
                 batch.update(pRef, { 
                     asignadoA: receiverId, 
                     token: token, 
-                    numeroPapelito: numeroPapelito 
+                    numeroPapelito: miPapelito,
+                    papelitoDestino: papelitoDestino
                 });
 
                 p.asignadoA = receiverId;
                 p.token = token;
-                p.numeroPapelito = numeroPapelito;
+                p.numeroPapelito = miPapelito;
+                p.papelitoDestino = papelitoDestino;
             }
 
             await batch.commit();
             window.appState.event.estado = 'sorteado';
             renderAdminUI();
-            alert("¡Sorteo realizado con éxito y números de papelitos asignados!");
+            alert("¡Sorteo realizado con éxito y papelitos asignados correctamente!");
         }
 
         function generarCirculoUnico(participants) {
@@ -473,10 +490,11 @@
             batch.update(doc(window.db, 'eventos', window.currentEventId), { estado: 'configuracion' });
             for (let p of window.appState.participants) {
                 const pRef = doc(window.db, 'eventos', window.currentEventId, 'participantes', p.id);
-                batch.update(pRef, { asignadoA: '', token: '', numeroPapelito: null });
+                batch.update(pRef, { asignadoA: '', token: '', numeroPapelito: null, papelitoDestino: null });
                 p.asignadoA = '';
                 p.token = '';
                 p.numeroPapelito = null;
+                p.papelitoDestino = null;
             }
             await batch.commit();
             window.appState.event.estado = 'configuracion';
@@ -491,9 +509,10 @@
 
             listEl.innerHTML = ps.map(p => {
                 const link = `${baseUrl}?evento=${window.currentEventId}&token=${p.token}`;
-                const msg = encodeURIComponent(`¡Hola ${p.nombre}! 🎁 Ya se realizó el sorteo de "${ev.nombre}". Tu número asignado en los papelitos físicos es el *#${p.numeroPapelito}*.
+                // CORREGIDO: Se muestra el número de papelito de la persona a la que le regala (papelitoDestino)
+                const msg = encodeURIComponent(`¡Hola ${p.nombre}! 🎁 Ya se realizó el sorteo de "${ev.nombre}". Tu número de papelito físico a abrir es el *#${p.papelitoDestino}*.
 
-Busca el papelito físico con ese número, ábrelo para mantener la tradición y luego haz clic en el siguiente enlace para ver los detalles del evento:
+Busca el papelito físico con ese número, ábrelo para mantener la tradición y luego haz clic en el siguiente enlace para confirmar los detalles en la app:
 ${link}`);
                 const waUrl = `https://wa.me/${p.phone.replace(/[^0-9]/g, '')}?text=${msg}`;
 
@@ -502,7 +521,7 @@ ${link}`);
                     <div>
                         <div class="flex items-center space-x-2">
                             <p class="font-bold text-slate-800 text-sm">${p.nombre}</p>
-                            <span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-md font-semibold">Papelito #${p.numeroPapelito}</span>
+                            <span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-md font-semibold">Abrir Papelito #${p.papelitoDestino}</span>
                         </div>
                         <p class="text-xs text-slate-400 font-mono truncate max-w-xs mt-1">${link}</p>
                     </div>
@@ -532,10 +551,10 @@ ${link}`);
             document.getElementById('rev-event-name').innerText = ev.nombre;
             document.getElementById('rev-participant-name').innerText = p.nombre;
             
-            // CORREGIDO: Se actualiza correctamente el número de papelito físico
+            // CORREGIDO: Muestra el número de papelito de la persona a la que le regala (papelitoDestino)
             const papelitoEl = document.getElementById('rev-papelito-num');
             if (papelitoEl) {
-                papelitoEl.innerText = p.numeroPapelito ? `#${p.numeroPapelito}` : '#--';
+                papelitoEl.innerText = p.papelitoDestino ? `#${p.papelitoDestino}` : '#--';
             }
 
             document.getElementById('rev-budget').innerText = ev.presupuesto;

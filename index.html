@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sorteo Amigo Secreto - Multi Evento</title>
+    <title>Sorteo Amigo Secreto - Tradición Papelitos</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -39,7 +39,7 @@
             <p class="text-slate-500 font-medium">Conectando con el evento...</p>
         </div>
 
-        <!-- EVENT SELECTOR (Si no se especifica ?evento= en la URL) -->
+        <!-- EVENT SELECTOR -->
         <div id="selector-view" class="hidden max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center space-y-6">
             <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner">
                 <i class="fa-solid fa-calendar-days"></i>
@@ -116,7 +116,7 @@
                 <div class="flex justify-between items-center mb-4">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-paper-plane text-indigo-600 mr-2"></i> Envío de Resultados por WhatsApp</h2>
-                        <p class="text-xs text-slate-500">Envía a cada participante su enlace único de revelación de forma segura.</p>
+                        <p class="text-xs text-slate-500">Envía a cada participante su número de papelito físico y enlace de revelación.</p>
                     </div>
                     <button onclick="resetearSorteo()" class="text-rose-600 hover:text-rose-700 text-xs font-semibold border border-rose-200 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors">
                         <i class="fa-solid fa-rotate-left mr-1"></i> Reiniciar Sorteo
@@ -139,13 +139,19 @@
                 <p class="text-sm text-slate-500 mt-1">Hola <span id="rev-participant-name" class="font-semibold text-slate-800"></span>, es hora de descubrir a quién le darás tu regalo.</p>
             </div>
 
+            <!-- Badge del Número de Papelito -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-center space-x-2 text-amber-800 text-sm font-medium">
+                <i class="fa-solid fa-ticket"></i>
+                <span>Tu papelito asignado es el número: <strong id="rev-papelito-num" class="text-lg">#--</strong></span>
+            </div>
+
             <div id="reveal-card-box" class="bg-slate-50 border border-slate-200 rounded-2xl p-6 transition-all">
                 <div id="reveal-locked">
                     <button onclick="revelarRegalo()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3.5 px-6 rounded-xl shadow-md transition-all flex items-center justify-center space-x-2">
                         <i class="fa-solid fa-eye"></i>
                         <span>Toca para Revelar</span>
                     </button>
-                    <p class="text-xs text-slate-400 mt-3">Asegúrate de estar solo antes de revelar.</p>
+                    <p class="text-xs text-slate-400 mt-3">Asegúrate de abrir primero tu papelito físico.</p>
                 </div>
                 
                 <div id="reveal-unlocked" class="hidden space-y-4">
@@ -171,7 +177,7 @@
     </main>
 
     <footer class="text-center py-6 text-xs text-slate-400">
-        Amigo Secreto App &bull; Multi-Evento Firebase
+        Amigo Secreto App &bull; Multi-Evento Firebase & Tradición Papelitos
     </footer>
 
     <!-- Firebase SDKs & App Script -->
@@ -202,7 +208,6 @@
             const token = urlParams.get('token');
 
             if (!eventId) {
-                // Si no hay evento en la URL, mostrar selector
                 document.getElementById('loading-view').classList.add('hidden');
                 document.getElementById('selector-view').classList.remove('hidden');
                 document.getElementById('app-mode-badge').innerText = "Inicio";
@@ -217,7 +222,6 @@
                 const app = initializeApp(firebaseConfig);
                 window.db = getFirestore(app);
 
-                // Referencia al documento del evento específico
                 const eventRef = doc(window.db, 'eventos', window.currentEventId);
                 const eventSnap = await getDoc(eventRef);
                 if (eventSnap.exists()) {
@@ -256,7 +260,6 @@
         }
 
         async function fetchParticipants() {
-            // Subcolección independiente por evento: eventos/{eventId}/participantes
             const pColl = collection(window.db, 'eventos', window.currentEventId, 'participantes');
             const querySnapshot = await getDocs(pColl);
             window.appState.participants = [];
@@ -310,13 +313,17 @@
                 }).join('');
 
                 const isLocked = window.appState.event.estado === 'sorteado';
+                const papelitoBadge = p.numeroPapelito ? `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-md font-semibold ml-2">Papelito #${p.numeroPapelito}</span>` : '';
 
                 return `
                 <div class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm space-y-3">
                     <div class="flex justify-between items-center">
                         <div>
-                            <h3 class="font-bold text-slate-800 text-sm">${p.nombre}</h3>
-                            <p class="text-xs text-slate-400"><i class="fa-brands fa-whatsapp text-emerald-500 mr-1"></i>${p.phone}</p>
+                            <div class="flex items-center">
+                                <h3 class="font-bold text-slate-800 text-sm">${p.nombre}</h3>
+                                ${papelitoBadge}
+                            </div>
+                            <p class="text-xs text-slate-400 mt-0.5"><i class="fa-brands fa-whatsapp text-emerald-500 mr-1"></i>${p.phone}</p>
                         </div>
                         ${!isLocked ? `<button onclick="deleteParticipant('${p.id}')" class="text-rose-500 hover:text-rose-700 text-xs p-1"><i class="fa-solid fa-trash-can"></i></button>` : ''}
                     </div>
@@ -344,7 +351,7 @@
 
             const newId = 'p_' + Math.random().toString(36).substr(2, 9);
             const pRef = doc(window.db, 'eventos', window.currentEventId, 'participantes', newId);
-            await setDoc(pRef, { nombre, phone, exclusiones: [], asignadoA: '', token: '' });
+            await setDoc(pRef, { nombre, phone, exclusiones: [], asignadoA: '', token: '', numeroPapelito: null });
             document.getElementById('p-name').value = '';
             document.getElementById('p-phone').value = '';
             await fetchParticipants();
@@ -383,23 +390,40 @@
                 return;
             }
 
+            // Generar números aleatorios únicos del 1 al N para los papelitos físicos
+            const n = participants.length;
+            let numerosPapelitos = Array.from({length: n}, (_, i) => i + 1);
+            for (let i = numerosPapelitos.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [numerosPapelitos[i], numerosPapelitos[j]] = [numerosPapelitos[j], numerosPapelitos[i]];
+            }
+
             const batch = writeBatch(window.db);
             const eventRef = doc(window.db, 'eventos', window.currentEventId);
             batch.update(eventRef, { estado: 'sorteado' });
 
-            for (let p of participants) {
+            for (let i = 0; i < participants.length; i++) {
+                const p = participants[i];
                 const receiverId = asignaciones[p.id];
                 const token = 'tok_' + Math.random().toString(36).substr(2, 12);
+                const numeroPapelito = numerosPapelitos[i];
+
                 const pRef = doc(window.db, 'eventos', window.currentEventId, 'participantes', p.id);
-                batch.update(pRef, { asignadoA: receiverId, token: token });
+                batch.update(pRef, { 
+                    asignadoA: receiverId, 
+                    token: token, 
+                    numeroPapelito: numeroPapelito 
+                });
+
                 p.asignadoA = receiverId;
                 p.token = token;
+                p.numeroPapelito = numeroPapelito;
             }
 
             await batch.commit();
             window.appState.event.estado = 'sorteado';
             renderAdminUI();
-            alert("¡Sorteo realizado con éxito!");
+            alert("¡Sorteo realizado con éxito y números de papelitos asignados!");
         }
 
         function generarCirculoUnico(participants) {
@@ -449,9 +473,10 @@
             batch.update(doc(window.db, 'eventos', window.currentEventId), { estado: 'configuracion' });
             for (let p of window.appState.participants) {
                 const pRef = doc(window.db, 'eventos', window.currentEventId, 'participantes', p.id);
-                batch.update(pRef, { asignadoA: '', token: '' });
+                batch.update(pRef, { asignadoA: '', token: '', numeroPapelito: null });
                 p.asignadoA = '';
                 p.token = '';
+                p.numeroPapelito = null;
             }
             await batch.commit();
             window.appState.event.estado = 'configuracion';
@@ -466,14 +491,20 @@
 
             listEl.innerHTML = ps.map(p => {
                 const link = `${baseUrl}?evento=${window.currentEventId}&token=${p.token}`;
-                const msg = encodeURIComponent(`¡Hola ${p.nombre}! 🎁 Ya se realizó el sorteo de "${ev.nombre}". Haz clic aquí para descubrir tu amigo secreto:\n${link}`);
+                const msg = encodeURIComponent(`¡Hola ${p.nombre}! 🎁 Ya se realizó el sorteo de "${ev.nombre}". Tu número asignado en los papelitos físicos es el *#${p.numeroPapelito}*.
+
+Busca el papelito físico con ese número, ábrelo para mantener la tradición y luego haz clic en el siguiente enlace para ver los detalles del evento:
+${link}`);
                 const waUrl = `https://wa.me/${p.phone.replace(/[^0-9]/g, '')}?text=${msg}`;
 
                 return `
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 border border-slate-200 p-3 rounded-xl gap-2">
                     <div>
-                        <p class="font-bold text-slate-800 text-sm">${p.nombre}</p>
-                        <p class="text-xs text-slate-400 font-mono truncate max-w-xs">${link}</p>
+                        <div class="flex items-center space-x-2">
+                            <p class="font-bold text-slate-800 text-sm">${p.nombre}</p>
+                            <span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-md font-semibold">Papelito #${p.numeroPapelito}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 font-mono truncate max-w-xs mt-1">${link}</p>
                     </div>
                     <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm">
                         <i class="fa-brands fa-whatsapp text-sm"></i>
@@ -500,6 +531,9 @@
             const ev = window.appState.event;
             document.getElementById('rev-event-name').innerText = ev.nombre;
             document.getElementById('rev-participant-name').innerText = p.nombre;
+            document.getElementById('rev-papelito-num.innerHTML').innerText = `#${p.numeroPapelito}`;
+            // Fix text replacement for papelito span safely
+            document.getElementById('rev-papelito-num').innerText = `#${p.numeroPapelito}`;
             document.getElementById('rev-budget').innerText = ev.presupuesto;
             document.getElementById('rev-date-place').innerText = ev.fecha_lugar;
             window.currentReceiverId = p.asignadoA;

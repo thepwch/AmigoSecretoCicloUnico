@@ -115,8 +115,8 @@
             <div id="communication-section" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <div class="flex justify-between items-center mb-4">
                     <div>
-                        <h2 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-paper-plane text-indigo-600 mr-2"></i> Envío de Resultados por WhatsApp</h2>
-                        <p class="text-xs text-slate-500">Envía a cada participante el número de papelito físico que debe abrir y su enlace.</p>
+                        <h2 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-paper-plane text-indigo-600 mr-2"></i> Guía de Papelitos Físicos y Envío de WhatsApp</h2>
+                        <p class="text-xs text-slate-500">Usa esta guía para escribir los papelitos a mano antes de enviar los mensajes.</p>
                     </div>
                     <button onclick="resetearSorteo()" class="text-rose-600 hover:text-rose-700 text-xs font-semibold border border-rose-200 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors">
                         <i class="fa-solid fa-rotate-left mr-1"></i> Reiniciar Sorteo
@@ -245,7 +245,7 @@
 
             } catch (err) {
                 console.error("Error al inicializar Firebase:", err);
-                alert("Error al conectar con Firebase.");
+                alert("Error al conectarกับ Firebase.");
             }
         });
 
@@ -316,8 +316,8 @@
                 let papelitoInfo = '';
                 if (isLocked && p.numeroPapelito !== undefined && p.papelitoDestino !== undefined) {
                     papelitoInfo = `<div class="mt-2 flex flex-wrap gap-2 text-xs">
-                        <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">Su nombre está en papelito: <strong>#${p.numeroPapelito}</strong></span>
-                        <span class="bg-amber-100 text-amber-800 px-2 py-1 rounded border border-amber-200">Debe abrir el papelito: <strong>#${p.papelitoDestino}</strong></span>
+                        <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md border border-indigo-200 font-medium">Papelito donde está su nombre por dentro: <strong>#${p.numeroPapelito}</strong></span>
+                        <span class="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200 font-medium">Papelito que debe abrir: <strong>#${p.papelitoDestino}</strong></span>
                     </div>`;
                 }
 
@@ -394,7 +394,6 @@
                 return;
             }
 
-            // Generar números aleatorios únicos del 1 al N para los papelitos físicos
             const n = participants.length;
             let numerosPapelitos = Array.from({length: n}, (_, i) => i + 1);
             for (let i = numerosPapelitos.length - 1; i > 0; i--) {
@@ -402,7 +401,6 @@
                 [numerosPapelitos[i], numerosPapelitos[j]] = [numerosPapelitos[j], numerosPapelitos[i]];
             }
 
-            // Asignar temporalmente un número de papelito físico a cada participante
             for (let i = 0; i < participants.length; i++) {
                 participants[i].tempPapelito = numerosPapelitos[i];
             }
@@ -420,8 +418,8 @@
                 const receiver = map.get(receiverId);
                 const token = 'tok_' + Math.random().toString(36).substr(2, 12);
                 
-                const miPapelito = p.tempPapelito;           // El número de papelito donde está su nombre por dentro
-                const papelitoDestino = receiver.tempPapelito; // El número de papelito que este participante debe abrir
+                const miPapelito = p.tempPapelito;           
+                const papelitoDestino = receiver.tempPapelito; 
 
                 const pRef = doc(window.db, 'eventos', window.currentEventId, 'participantes', p.id);
                 batch.update(pRef, { 
@@ -440,7 +438,7 @@
             await batch.commit();
             window.appState.event.estado = 'sorteado';
             renderAdminUI();
-            alert("¡Sorteo realizado con éxito y papelitos asignados correctamente!");
+            alert("¡Sorteo realizado con éxito!");
         }
 
         function generarCirculoUnico(participants) {
@@ -509,7 +507,6 @@
 
             listEl.innerHTML = ps.map(p => {
                 const link = `${baseUrl}?evento=${window.currentEventId}&token=${p.token}`;
-                // CORREGIDO: Se muestra el número de papelito de la persona a la que le regala (papelitoDestino)
                 const msg = encodeURIComponent(`¡Hola ${p.nombre}! 🎁 Ya se realizó el sorteo de "${ev.nombre}". Tu número de papelito físico a abrir es el *#${p.papelitoDestino}*.
 
 Busca el papelito físico con ese número, ábrelo para mantener la tradición y luego haz clic en el siguiente enlace para confirmar los detalles en la app:
@@ -551,7 +548,6 @@ ${link}`);
             document.getElementById('rev-event-name').innerText = ev.nombre;
             document.getElementById('rev-participant-name').innerText = p.nombre;
             
-            // CORREGIDO: Muestra el número de papelito de la persona a la que le regala (papelitoDestino)
             const papelitoEl = document.getElementById('rev-papelito-num');
             if (papelitoEl) {
                 papelitoEl.innerText = p.papelitoDestino ? `#${p.papelitoDestino}` : '#--';
@@ -563,8 +559,13 @@ ${link}`);
         }
 
         window.revelarRegalo = function() {
-            const ps = window.appState.participants;
-            const receiver = ps.find(x => x.id === window.currentReceiverId);
+            let user = window.appState.participants.find(x => x.token === new URLSearchParams(window.location.search).get('token'));
+            if (user && user.papelitoDestino) {
+                const papelitoEl = document.getElementById('rev-papelito-num');
+                if (papelitoEl) papelitoEl.innerText = `#${user.papelitoDestino}`;
+            }
+
+            const receiver = window.appState.participants.items ? null : window.appState.participants.find(x => x.id === window.currentReceiverId);
             if (receiver) {
                 document.getElementById('rev-receiver-name').innerText = receiver.nombre;
                 document.getElementById('reveal-locked').classList.add('hidden');

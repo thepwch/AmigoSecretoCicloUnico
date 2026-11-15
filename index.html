@@ -313,7 +313,7 @@
                 }).join('');
 
                 const isLocked = window.appState.event.estado === 'sorteado';
-                const papelitoBadge = p.numeroPapelito ? `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-md font-semibold ml-2">Papelito #${p.numeroPapelito}</span>` : '';
+                const papelitoBadge = (p.numeroPapelito !== undefined && p.numeroPapelito !== null) ? `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-md font-semibold ml-2">Papelito #${p.numeroPapelito}</span>` : '';
 
                 return `
                 <div class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm space-y-3">
@@ -531,9 +531,13 @@ ${link}`);
             const ev = window.appState.event;
             document.getElementById('rev-event-name').innerText = ev.nombre;
             document.getElementById('rev-participant-name').innerText = p.nombre;
-            document.getElementById('rev-papelito-num.innerHTML').innerText = `#${p.numeroPapelito}`;
-            // Fix text replacement for papelito span safely
-            document.getElementById('rev-papelito-num').innerText = `#${p.numeroPapelito}`;
+            
+            // CORREGIDO: Se actualiza correctamente el número de papelito físico
+            const papelitoEl = document.getElementById('rev-papelito-num');
+            if (papelitoEl) {
+                papelitoEl.innerText = p.numeroPapelito ? `#${p.numeroPapelito}` : '#--';
+            }
+
             document.getElementById('rev-budget').innerText = ev.presupuesto;
             document.getElementById('rev-date-place').innerText = ev.fecha_lugar;
             window.currentReceiverId = p.asignadoA;
